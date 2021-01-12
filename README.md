@@ -13,6 +13,4 @@ Requirements:
 3) Display instantaneous, average and max speeds on LCD with the selected speed unit
 4) Cycle selected speed display unit between m/s, km/h, mph and knots on short keypresses of a button (with debounce)
 5) Adjust LCD brightess on long keypresses of the same button used for display mode (ramps brightness progressively up to max then down to zero; repeat until button is released)
-6) If either average speed or max speed are above safety limits, light an alarm LED and send command to roll up the awnings
-
-This prototype cannot sense the current awning status (up, down or in transit), so the safeguard will keep sending "roll up" commands at set intervals until the alarm condition ends.
+6) If either average speed or max speed are above safety limits, light an alarm LED and send command to roll up the awnings. This prototype cannot sense the current awning status (up, down or in transit), so the safeguard will keep sending "roll up" commands at set intervals until the alarm condition ends.
