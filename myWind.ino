@@ -1,5 +1,5 @@
 /*
-  myWind_v5.1
+  myWind_v5.2
 
   Wind meter and safeguard for remote-controlled sun awnings: when the wind is too strong, rolls up the awnings to prevent damage
 
@@ -89,6 +89,7 @@ const double WIND_AVG_LIMIT = 5.5;        // average wind speed limit in m/s; wh
 const double WIND_MAX_LIMIT = 8.5;        // max wind speed limit in m/s; when max wind is above the limit then the awnings must be rolled up
 
 const int BUTTON_PIN = 4;                 // digital pin number for display mode/brightness adjustment button
+const int BUTTON_PRESS_LEVEL = HIGH;      // logical input level when button is pressed; here a pull-down resistor in the circuit ensures the button defaults to LOW when not pressed
 const int BUTTON_SHORT_INTERVAL = 50;     // minimum duration of a short keypress in milliseconds (for debouncing display mode changes)
 const int BUTTON_LONG_INTERVAL = 2000;    // minimum duration of a long keypress in milliseconds (for brightness adjustment)
 const int BRIGHTNESS_INTERVAL = 250;      // number of milliseconds between brightness changes
@@ -134,10 +135,10 @@ SpeedUnit displayMode = MS;         // current speed display mode, initialized t
 // automatically runs once when the board is powered-up or reset
 void setup() {
 
-  // initialize digital pin for wind sensor as input; a pull-down resistor in the circuit ensures the sensor defaults to LOW
+  // initialize digital pin for wind sensor as input
   pinMode(WIND_SENSOR_PIN, INPUT);
 
-  // attach interrupt to the wind sensor pin; set windPulseISR as the interrupt handler; interrupts are triggered on rising signal fronts
+  // attach interrupt to the wind sensor pin; set windPulseISR as the interrupt handler; interrupts are triggered on rising signal fronts (a pull-down resistor in the circuit ensures the sensor defaults to LOW)
   attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), windPulseISR, RISING);
 
   // initialize LCD as a 16x2 display (2 lines, 16 characters per line)
@@ -168,21 +169,21 @@ void loop () {
   checkLimits();
 }
 
-/* N.B. there is NO need to explicitily manage timer wrap (aka rollover, i.e. when millis() overflows and resets to 0, approx. every 50 days) when performing interval calculations (e.g. currentMillis - lastWindMillis) because
+/* N.B. there is NO need to explicitily manage timer wrap (aka rollover, i.e. when millis() overflows and resets to 0, approx. every 50 days) when performing interval calculations (e.g. currentMillis - lastWindMillis in readWind) because
    two's complement arithmetics will automagically ensure that results are correct even across overflows IF all variables involved in the calculation are UNSIGNED integers (works with unsigned long, unsigned int and unsigned byte).
-   Signed integers (e.g. WIND_SENSOR_INTERVAL) are implicitly converted by the compiler to unsigned long when mixed in expressions with unsigned long variables (e.g. lastWindMillis).
+   Signed integers (e.g. WIND_SENSOR_INTERVAL) are implicitly converted by the compiler to unsigned long when mixed in expressions with unsigned long variables.
 */
 
 // read sensor pulse counter, compute current wind speed, update the sliding window, compute average wind speed and update the display
 void readWind() {
-  static unsigned long lastWindMillis = 0;   // last time the wind speed was measured
-  static double wind[WIND_AVG_WINDOW];       // array (sampling window) of most recent wind speed measurements in m/s; does not need to be initialized, see readWind()
-  static int sampleCount = 0;                // number of wind speed samples collected so far; if < WIND_AVG_WINDOW then the sliding window is incomplete (initial transient)
-  static int currentSample = 0;              // index of the current wind speed sample within the wind[] array
+  static unsigned long lastWindMillis = 0;  // last time the wind speed was measured
+  static double wind[WIND_AVG_WINDOW];      // array (sampling window) of most recent wind speed measurements in m/s; does not need to be initialized, see readWind()
+  static int sampleCount = 0;               // number of wind speed samples collected so far; if < WIND_AVG_WINDOW then the sliding window is incomplete (initial transient)
+  static int currentSample = 0;             // index of the current wind speed sample within the wind[] array
 
-  int pulses = 0;       // local buffer for wind pulse counter
-  double rps = 0.0;     // rotation speed of the sensor in revolutions per second (separate variable for debugging and clarity)
-  double sum = 0.0;     // sum of wind speed samples for average calculation
+  int pulses = 0;                           // local buffer for wind pulse counter
+  double rps = 0.0;                         // rotation speed of the sensor in revolutions per second (separate variable for debugging and clarity)
+  double sum = 0.0;                         // sum of wind speed samples for average calculation
 
   // if time elapsed since last measurement < WIND_SENSOR_INTERVAL --> do nothing
   if (currentMillis - lastWindMillis >= WIND_SENSOR_INTERVAL) {
@@ -241,22 +242,25 @@ void readWind() {
 
 // check button status to cycle display mode (short keypress) or adjust display brightness (long keypress)
 void checkButton() {
-  static int lastButtonReading = LOW;             // last reading of the display mode/brightness adjust button, HIGH = button pressed
-  static unsigned long lastButtonMillis = 0;      // last time a button was pressed (rising signal front)
-  static int displayBrightness = 100;             // current LCD brightness in percent
-  static int brightnessDirection = -1;            // current brightness change direction (1 = increase; -1 = decrease)
-  static unsigned long lastBrightnessMillis = 0;  // last time brightness was changed
+  static int wasButtonPressed = 0;                              // wasButtonPressed = TRUE (1) if the button was pressed during the previous call of checkButton
+  static unsigned long lastButtonMillis;                        // last time a button was pressed (rising signal front)
+  static int displayBrightness = 100;                           // current LCD brightness in percent
+  static int brightnessDirection = -1;                          // current brightness change direction (1 = increase; -1 = decrease)
+  static unsigned long lastBrightnessMillis = 0;                // last time brightness was changed
 
-  int buttonReading = digitalRead(BUTTON_PIN);    // current state of the button
+  int isButtonPressed = (digitalRead(BUTTON_PIN) == BUTTON_PRESS_LEVEL); // isButtonPressed = TRUE (1) if the button is pressed
+  int onPress = isButtonPressed && !wasButtonPressed;           // onPress = TRUE (1) on a rising signal front
+  int onRelease = !isButtonPressed && wasButtonPressed;         // onRelease = TRUE (1) on a falling signal front
+  wasButtonPressed = isButtonPressed;
 
-  // record time of the latest rising signal front
-  if (buttonReading == HIGH && lastButtonReading == LOW)
-    lastButtonMillis = currentMillis;
+  if (onPress) lastButtonMillis = currentMillis;                // record the time of the latest rising signal front
+  unsigned long pressDuration = currentMillis - lastButtonMillis; // time elapsed since last rising signal front
 
   // cycle display mode on a falling signal front after a "short" keypress
   // keypresses shorter than BUTTON_SHORT_INTERVAL are ignored as noise (debouncing)
   // keypresses longer than BUTTON_LONG_INTERVAL are ignored as brightness adjustments (only the falling signal front is processed here)
-  if (buttonReading == LOW && lastButtonReading == HIGH && currentMillis - lastButtonMillis >= BUTTON_SHORT_INTERVAL && currentMillis - lastButtonMillis < BUTTON_LONG_INTERVAL) {
+  if (onRelease && (pressDuration >= BUTTON_SHORT_INTERVAL) && (pressDuration < BUTTON_LONG_INTERVAL))
+  {
     if ( displayMode < NUM_MODES-1 )
       displayMode = (SpeedUnit)(displayMode+1); // explicit type casting is required to appease the compiler: we know what we're doing by assigning an integer (result of the calculation) to an enum
     else
@@ -264,15 +268,14 @@ void checkButton() {
   }
 
   // adjust display brightness on a "long" continuous keypress, but only once every BRIGHTNESS_INTERVAL milliseconds
-  if (buttonReading == HIGH && currentMillis - lastButtonMillis >= BUTTON_LONG_INTERVAL && currentMillis - lastBrightnessMillis >= BRIGHTNESS_INTERVAL) {
+  if (isButtonPressed && (pressDuration >= BUTTON_LONG_INTERVAL) && (currentMillis - lastBrightnessMillis >= BRIGHTNESS_INTERVAL))
+  {
     displayBrightness += BRIGHTNESS_INCREMENT*brightnessDirection;
     analogWrite(LCD_BKL_PIN, 255*displayBrightness/100);
     if (displayBrightness >= 100) brightnessDirection = -1;
     if (displayBrightness <= 0) brightnessDirection = 1;
     lastBrightnessMillis = currentMillis;
   }
-
-  lastButtonReading = buttonReading;
 }
 
 // check wind speed limits and roll up the awnings if needed
