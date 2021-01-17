@@ -120,8 +120,6 @@ volatile int pulseCount = 0;        // counter for wind sensor pulses, increment
 double avgWind = 0.0;               // average wind speed in m/s over the sampling window
 double maxWind = 0.0;               // max wind speed in m/s over the sampling window
 LiquidCrystal lcd(LCD_RS_PIN, LCD_EN_PIN, LCD_D4_PIN, LCD_D5_PIN, LCD_D6_PIN, LCD_D7_PIN); // instance of the LiquidCrystal class, in 4 data bits mode
-int displayBrightness = 100;        // current LCD brightness in percent
-int brightnessDirection = -1;       // current brightness change direction (1 = increase; -1 = decrease)
 enum SpeedUnit {                    // speed display modes; the number of speed units must match the constant NUM_MODES; constant arrays UNIT_FACTOR[] and UNIT_LABEL[] must be initialized accordingly
   MS,     // m/s
   KMH,    // km/h
@@ -146,11 +144,9 @@ void setup() {
   lcd.begin(16,2);
   lcd.clear();
 
-  // initialize LCD brightness control pin as output (PWM), brightness to max and brightness change direction to decrement
+  // initialize LCD brightness control pin as output (PWM) and set brightness to max
   pinMode(LCD_BKL_PIN, OUTPUT);
-  displayBrightness = 100;
-  analogWrite(LCD_BKL_PIN, 255*displayBrightness/100);
-  brightnessDirection = -1;
+  analogWrite(LCD_BKL_PIN, 255);
 
   // initialize digital pin for button as input; a pull-down resistor in the circuit ensures the button defaults to LOW (=button not pressed).
   pinMode(BUTTON_PIN, INPUT);
@@ -245,11 +241,13 @@ void readWind() {
 
 // check button status to cycle display mode (short keypress) or adjust display brightness (long keypress)
 void checkButton() {
-  static int lastButtonReading = LOW;        // last reading of the display mode/brightness adjust button, HIGH = button pressed
-  static unsigned long lastButtonMillis = 0; // last time a button was pressed (rising signal front)
-  static unsigned long lastBrightnessMillis = 0; // last time display brightness was changed
+  static int lastButtonReading = LOW;             // last reading of the display mode/brightness adjust button, HIGH = button pressed
+  static unsigned long lastButtonMillis = 0;      // last time a button was pressed (rising signal front)
+  static int displayBrightness = 100;             // current LCD brightness in percent
+  static int brightnessDirection = -1;            // current brightness change direction (1 = increase; -1 = decrease)
+  static unsigned long lastBrightnessMillis = 0;  // last time brightness was changed
 
-  int buttonReading = digitalRead(BUTTON_PIN);   // current state of the button
+  int buttonReading = digitalRead(BUTTON_PIN);    // current state of the button
 
   // record time of the latest rising signal front
   if (buttonReading == HIGH && lastButtonReading == LOW)
