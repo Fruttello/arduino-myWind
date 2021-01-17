@@ -1,5 +1,5 @@
 /*
-  myWind_v5
+  myWind_v5.1
 
   Tutorial for Arduino self-learning purposes only; feel free to use and copy
 
@@ -116,23 +116,12 @@ const int COMMAND_DURATION = 250;         // duration (in milliseconds) of a sim
 // ---- GLOBAL VARIABLES
 
 long currentMillis = 0;             // value of the on-board timer (in milliseconds) for the current iteration of loop()
-
-unsigned long lastWindMillis = 0;   // last time the wind speed was measured
-unsigned long lastPulseMillis = 0;  // last time a sensor pulse was processed
-volatile int pulseCount = 0;        // counter for wind sensor pulses, incremented by the interrupt handler (windPulseISR); the volatile qualifier is needed because value is changed by a callback function
-double wind[WIND_AVG_WINDOW];       // array (sampling window) of most recent wind speed measurements in m/s; does not need to be initialized, see readWind()
-int sampleCount = 0;                // number of wind speed samples collected so far; if < WIND_AVG_WINDOW then the sliding window is incomplete (initial transient)
-int currentSample = 0;              // index of the current wind speed sample within the wind[] array
+volatile int pulseCount = 0;        // counter for wind sensor pulses, incremented by the interrupt handler (windPulseISR); the volatile qualifier is needed to disable compiler optimizations
 double avgWind = 0.0;               // average wind speed in m/s over the sampling window
 double maxWind = 0.0;               // max wind speed in m/s over the sampling window
-
-int lastButtonReading = LOW;        // last reading of the display mode/brightness adjust button, HIGH = button pressed
-unsigned long lastButtonMillis = 0; // last time a button was pressed (rising signal front)
-
 LiquidCrystal lcd(LCD_RS_PIN, LCD_EN_PIN, LCD_D4_PIN, LCD_D5_PIN, LCD_D6_PIN, LCD_D7_PIN); // instance of the LiquidCrystal class, in 4 data bits mode
-int displayBrightness = 0;          // current LCD brightness in percent
-int brightnessDirection = 1;        // current brightness change direction (1 = increase; -1 = decrease)
-unsigned long lastBrightnessMillis = 0; // last time display brightness was changed
+int displayBrightness = 100;        // current LCD brightness in percent
+int brightnessDirection = -1;       // current brightness change direction (1 = increase; -1 = decrease)
 enum SpeedUnit {                    // speed display modes; the number of speed units must match the constant NUM_MODES; constant arrays UNIT_FACTOR[] and UNIT_LABEL[] must be initialized accordingly
   MS,     // m/s
   KMH,    // km/h
@@ -140,9 +129,6 @@ enum SpeedUnit {                    // speed display modes; the number of speed 
   KN      // knots (nautical miles per hour)
 };
 SpeedUnit displayMode = MS;         // current speed display mode, initialized to m/s
-
-unsigned long lastCommandMillis = 0;// last time an awning command was sent
-
 
 
 // ---- SOURCE CODE
@@ -193,6 +179,11 @@ void loop () {
 
 // read sensor pulse counter, compute current wind speed, update the sliding window, compute average wind speed and update the display
 void readWind() {
+  static unsigned long lastWindMillis = 0;   // last time the wind speed was measured
+  static double wind[WIND_AVG_WINDOW];       // array (sampling window) of most recent wind speed measurements in m/s; does not need to be initialized, see readWind()
+  static int sampleCount = 0;                // number of wind speed samples collected so far; if < WIND_AVG_WINDOW then the sliding window is incomplete (initial transient)
+  static int currentSample = 0;              // index of the current wind speed sample within the wind[] array
+
   int pulses = 0;       // local buffer for wind pulse counter
   double rps = 0.0;     // rotation speed of the sensor in revolutions per second (separate variable for debugging and clarity)
   double sum = 0.0;     // sum of wind speed samples for average calculation
@@ -254,6 +245,9 @@ void readWind() {
 
 // check button status to cycle display mode (short keypress) or adjust display brightness (long keypress)
 void checkButton() {
+  static int lastButtonReading = LOW;        // last reading of the display mode/brightness adjust button, HIGH = button pressed
+  static unsigned long lastButtonMillis = 0; // last time a button was pressed (rising signal front)
+  static unsigned long lastBrightnessMillis = 0; // last time display brightness was changed
 
   int buttonReading = digitalRead(BUTTON_PIN);   // current state of the button
 
@@ -285,6 +279,7 @@ void checkButton() {
 
 // check wind speed limits and roll up the awnings if needed
 void checkLimits() {
+  static unsigned long lastCommandMillis = 0;// last time an awning command was sent
 
   if (avgWind >= WIND_AVG_LIMIT || maxWind >= WIND_MAX_LIMIT) {
     digitalWrite(ALARM_LED_PIN, HIGH);
@@ -303,6 +298,7 @@ void checkLimits() {
 
 // ISR = Interrupt Service Routine (interrupt handler): callback function triggered by rising signal fronts on WIND_SENSOR_PIN
 void windPulseISR() {
+  static unsigned long lastPulseMillis = 0;  // last time a sensor pulse was processed
 
   // if the time elapsed since last pulse < WIND_PULSE_INTERVAL --> do nothing (ignore the pulse as noise)
   if (currentMillis - lastPulseMillis >= WIND_PULSE_INTERVAL) {
