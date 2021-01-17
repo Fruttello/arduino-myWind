@@ -2,9 +2,7 @@
 
 Wind meter and safeguard for remote-controlled sun awnings: when the wind is too strong, rolls up the awnings to prevent damage
 
-Tutorial for Arduino self-learning purposes only, by Fruttello 2021; feel free to use and copy 
-
-Released under the Creative Commons Zero CC0 V1.0 Universal license, see LICENSE or https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Tutorial for Arduino self-learning purposes only, licensed by Fruttello 2021 under Creative Commons Zero v1.0 Universal (CC0); see LICENSE or https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
 Requirements:
 
