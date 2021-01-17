@@ -1,9 +1,9 @@
 /*
   myWind_v5.1
 
-  Tutorial for Arduino self-learning purposes only, licensed by Fruttello 2021 under Creative Commons Zero v1.0 Universal (CC0).
-
   Wind meter and safeguard for remote-controlled sun awnings: when the wind is too strong, rolls up the awnings to prevent damage
+
+  Tutorial for Arduino self-learning purposes only, licensed by Fruttello 2021 under Creative Commons Zero v1.0 Universal (CC0).
 
   Requirements:
   1) Measure wind speed through a wind mill with pulse sensor (a Reed switch that generates 1 pulse per revolution)
