@@ -243,7 +243,7 @@ void readWind() {
 // check button status to cycle display mode (short keypress) or adjust display brightness (long keypress)
 void checkButton() {
   static int wasButtonPressed = 0;                              // wasButtonPressed = TRUE (1) if the button was pressed during the previous call of checkButton
-  static unsigned long lastButtonMillis;                        // last time a button was pressed (rising signal front)
+  static unsigned long lastButtonMillis = 0;                    // last time a button was pressed (rising signal front)
   static int displayBrightness = 100;                           // current LCD brightness in percent
   static int brightnessDirection = -1;                          // current brightness change direction (1 = increase; -1 = decrease)
   static unsigned long lastBrightnessMillis = 0;                // last time brightness was changed
